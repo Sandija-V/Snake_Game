@@ -1,4 +1,60 @@
 #include <SFML/Graphics.hpp>
+#include <cstdlib> // For rand()
+#include <sstream> // For std::stringstream
+
+class Food{
+public:
+	//constructor
+	Food(int x, int y) :
+		x { x },
+		y { y }{
+		setColor(sf::Color::Red);
+	}
+
+	// Get the x coordinate of the food
+	int getX() const {
+		return x;
+	}
+
+	// Get the y coordinate of the food
+	int getY() const {
+		return y;
+	}
+
+	// Set the x coordinate of the food
+	void setX(int x) {
+		this->x = x;
+	}
+
+	// Set the y coordinate of the food
+	void setY(int y) {
+		this->y = y;
+	}
+
+	// Set the color of the food
+	void setColor(const sf::Color& color) {
+        this->color = color;
+    }
+
+	// Get the color of the food
+    sf::Color getColor() const {
+        return color;
+    }
+
+	// Draw the food on the screen
+	void draw(sf::RenderWindow& window) {
+		sf::RectangleShape food(sf::Vector2f(20, 20));
+		food.setPosition(x * 20, y * 20);
+		//food.setFillColor(sf::Color::Red);
+		food.setFillColor(color);
+		window.draw(food);
+	}
+
+private:
+	int x;
+	int y;
+	sf::Color color;
+};
 
 class Snake {
 public:
@@ -135,6 +191,7 @@ public:
 		while (current != nullptr) {
 			sf::RectangleShape segment(sf::Vector2f(20, 20));
 			segment.setPosition(current->x * 20, current->y * 20);
+			segment.setFillColor(sf::Color::Green);
 			window.draw(segment);
 			current = current->next;
 		}
@@ -145,6 +202,68 @@ public:
 		return head;
 	}
 
+	bool checkCollisionWithItself() {
+		Node* current = head->next;
+		while (current != nullptr) {
+			if (head->x == current->x && head->y == current->y) {
+				// The snake has collided with itself
+				return true;
+			}
+			current = current->next;
+		}
+		return false;
+	}
+
+
+	bool checkCollision(Food& food) {
+		if (head->x == food.getX() && head->y == food.getY()) {
+			// The snake has collided with the food
+			Node* current = head;
+			while (current->next != nullptr) {
+				current = current->next;
+			}
+			// A new node is added to the end of the snake
+			current->next = new Node{ current->x, current->y, nullptr };
+			//The food is set to a random color
+			// sf::Color newColor(rand() % 256, rand() % 256, rand() % 256);
+            // food.setColor(newColor);
+
+			 // Generate a new random color for the food
+			sf::Color newColor;
+			do {
+				newColor = sf::Color(rand() % 256, rand() % 256, rand() % 256);
+			} while (isColorTooDark(newColor));
+
+			food.setColor(newColor);
+
+			//The food is moved to a new random location
+			food.setX(rand() % 40);
+			food.setY(rand() % 30);
+		}
+		return false;
+	}
+
+	bool isColorTooDark(const sf::Color& color) {
+		// Calculate the brightness of the color using a simple formula (adjust the threshold as needed)
+		int brightness = (color.r + color.g + color.b) / 3;
+		return brightness < 50; // Adjust the threshold as needed
+	}
+
+	 // Set the game state to paused
+    void pause() {
+        paused = true;
+    }
+
+    // Set the game state to running
+    void start() {
+        paused = false;
+    }
+
+    // Check if the game is currently paused
+    bool isPaused() const {
+        return paused;
+    }
+
 private:
 	Node m_head { 0, 0, nullptr };
 	Node* head = &m_head;
@@ -152,14 +271,18 @@ private:
 	int speed;
 	int direction; // 0 = up, 1 = right, 2 = down, 3 = left
 	int m_direction;
+	bool paused = false;
 };
 
+
 int main() {
+
 	// Create the game window
 	sf::RenderWindow window(sf::VideoMode(800, 600), "Snake Game");
 
 	// Create the snake object
 	Snake snake(10, 10, 8, 5, 1);
+	Food food(5, 5);
 
     // init clock
     sf::Clock clock;
@@ -186,27 +309,44 @@ int main() {
 				else if (event.key.code == sf::Keyboard::Left && snake.getDirection() != 1) {
 					snake.setDirection(3);
 				}
+				else if (event.key.code == sf::Keyboard::Space) {
+                    if (snake.isPaused()) {
+                        snake.start();
+                    }
+                    else {
+                        snake.pause();
+					}
+				}
 			}
 		}
+
 		// Clear the window
 		window.clear();
 
-        //ged diference from lt to now
-        sf::Time now = clock.getElapsedTime();
-        sf::Time diff = now - lt;
-        if (diff.asMilliseconds() > 1000 / snake.getSpeed()) {
-            lt = now;
-            snake.move();
+		if (!snake.isPaused()) {
+			//ged diference from lt to now
+            sf::Time now = clock.getElapsedTime();
+			sf::Time diff = now - lt;
+			if (diff.asMilliseconds() > 1000 / snake.getSpeed()) {
+				lt = now;
+				snake.move();
+			}
         }
-
-		//snake.move();
 
 		// Draw the snake
 		snake.draw(window);
+		// Draw the food
+		food.draw(window);
+
+		(snake.checkCollision(food));
+
+		if(snake.checkCollisionWithItself()) {
+			snake = Snake(10, 10, 8, 5, 1);
+		}
 
 		// Update the window
 		window.display();
-		sf::sleep(sf::milliseconds(1000 / (snake.getSpeed())));
+		//sf::sleep(sf::milliseconds(1000 / (snake.getSpeed())));
 	}
 
 	return 0;
